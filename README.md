@@ -1,153 +1,153 @@
 # Cuneiform Sign Classifier
 
-Klasyfikacja pojedynczych znaków pisma klinowego (sumeryjskiego/akadyjskiego) na
-zdjęciach 3D-renderowanych tabliczek glinianych, z wykorzystaniem transfer
-learningu. Projekt portfolio pokazujący pełny cykl pracy ML: od eksploracji
-niszowego, trudnego datasetu, przez metodologicznie poprawny trening, po
-głęboką analizę błędów łączącą wyniki modelu z wiedzą domenową (paleografią).
+Classification of individual cuneiform signs (Sumerian/Akkadian) on images of
+3D-rendered clay tablets, using transfer learning. A portfolio project
+demonstrating a full ML workflow: exploring a niche, challenging dataset,
+methodologically sound training, and deep error analysis connecting model
+results with domain knowledge (paleography).
 
 ![Grad-CAM demo](eda_outputs/embeddings_period_drift.png)
 
-## Dlaczego ten projekt
+## Why this project
 
-Pismo klinowe to jedna z najstarszych form pisma na świecie i wciąż aktywny
-obszar badań cyfrowej humanistyki — istnieje świeży (2026) paper opisujący
-end-to-end pipeline OCR dla tego pisma
-([arXiv:2606.22608](https://arxiv.org/abs/2606.22608)), który posłużył jako
-punkt odniesienia. Zamiast kolejnego klasyfikatora kotów i psów, ten projekt
-mierzy się z realnymi wyzwaniami: niszowym, niezbalansowanym datasetem,
-niespójnościami w metadanych i domenowo specyficzną augmentacją danych.
+Cuneiform is one of the oldest writing systems in the world and still an
+active area of digital humanities research — a recent (2026) paper describes
+an end-to-end OCR pipeline for this script
+([arXiv:2606.22608](https://arxiv.org/abs/2606.22608)), which served as a
+reference point. Instead of another cats-vs-dogs classifier, this project
+tackles real challenges: a niche, imbalanced dataset, inconsistencies in the
+metadata, and domain-specific data augmentation.
 
-## Wyniki w skrócie
+## Results at a glance
 
-| Metryka | Wynik |
+| Metric | Result |
 |---|---|
-| Liczba klas | 30 najczęstszych znaków |
-| Test accuracy | 90,4% |
-| Test macro-F1 | 0,896 |
+| Number of classes | Top 30 most frequent signs |
+| Test accuracy | 90.4% |
+| Test macro-F1 | 0.896 |
 | Model | ResNet18 (transfer learning), CPU-only |
 | Dataset | [MaiCuBeDa Hilprecht](https://doi.org/10.11588/DATA/QSNIQ2) |
 
-Pełny `classification_report` per-klasa w `evaluate.py` / sekcja
-[Wyniki](#wyniki-szczegółowe) poniżej.
+Full per-class `classification_report` produced by `evaluate.py` / see the
+[Detailed Results](#detailed-results) section below.
 
 ## Dataset
 
 **MaiCuBeDa Hilprecht** (Mainz Cuneiform Benchmark Dataset), Homburg & Mara
-2023, udostępniony na licencji **CC BY-SA 4.0**. Zawiera ~28,7 tys.
-anotowanych pojedynczych znaków klinowych, wyrenderowanych z modeli 3D
-tabliczek Kolekcji Hilprechta (technika renderingu MSII — filtr krzywizny,
-lepszy do detekcji/klasyfikacji znaków niż zwykłe oświetlenie wg literatury).
+2023, released under **CC BY-SA 4.0**. Contains ~28.7k annotated individual
+cuneiform signs, rendered from 3D models of tablets from the Hilprecht
+Collection (MSII rendering — a curvature-based filter, reported in the
+literature to work better for sign detection/classification than plain
+lighting).
 
-**Realistyczny zakres problemu:** zamiast pełnego OCR całych tekstów (temat
-na doktorat), projekt skupia się na **klasyfikacji pojedynczego, już
-wyciętego znaku** — top-30 najczęstszych klas, wybranych na podstawie
-rzeczywistego rozkładu w danych (każda klasa ma min. 203 przykłady po
-przefiltrowaniu, pokrycie ~44% całego zbioru anotacji).
+**Realistic scope:** instead of full OCR of entire texts (a PhD-scale
+problem), this project focuses on **classifying a single, already-cropped
+sign** — the top 30 most frequent classes, selected based on the actual
+distribution in the data (each class has at least 203 examples after
+filtering, covering ~44% of the full annotation set).
 
-### Napotkany problem jakości danych
+### Data quality issue encountered
 
-Pole `Filename` w metadanych CSV (`translitmetadata.csv`) **nie odpowiada
-rzeczywistym nazwom plików** w opublikowanym archiwum obrazów (inny schemat
-liczby pól — prawdopodobnie artefakt wersjonowania datasetu). Rozwiązanie:
-zamiast dopasowywać po nazwie pliku z CSV, `build_dataset.py` **parsuje nazwy
-plików bezpośrednio z dysku** i mapuje transliterację znaku na nazwę klasy
-przez osobną tabelę zbudowaną z CSV (923 unikalne odczyty, tylko 18
-niejednoznacznych, rozwiązanych większością głosów).
+The `Filename` field in the metadata CSV (`translitmetadata.csv`) **does not
+match the actual filenames** in the published image archive (a different
+number of fields — likely a dataset versioning artifact). Solution: instead
+of matching by the filename from the CSV, `build_dataset.py` **parses
+filenames directly from disk** and maps each sign's transliteration to its
+class name via a separate lookup table built from the CSV (923 unique
+readings, only 18 ambiguous, resolved by majority vote).
 
-## Metodologia
+## Methodology
 
-- **Podział train/val/test (70/15/15) grupowany po tabliczce**, nie po
-  pojedynczym obrazie — ten sam znak z tej samej tabliczki nigdy nie trafia
-  jednocześnie do dwóch zbiorów. Zweryfikowane testami jednostkowymi
-  (`tests/test_no_leakage.py`, 8 testów, w tym explicit sprawdzenie braku
-  nakładania się zbiorów tabliczek).
-- **Class weights** (odwrotność częstości) w funkcji straty — umiarkowany
-  imbalance (~5x między najczęstszą a najrzadszą z top-30 klas).
-- **Model wybierany wg macro-F1 na val, nie accuracy** — żeby uniknąć
-  faworyzowania częstych klas.
-- **Augmentacja bez odbić lustrzanych.** Standardowe `RandomHorizontalFlip`
-  byłoby tu błędem metodologicznym — odbicie znaku klinowego zmienia jego
-  tożsamość. Użyto tylko małej rotacji (±8°) i lekkiego jitteru
-  jasności/kontrastu.
-- **Transfer learning z częściowym zamrożeniem** — `layer1`/`layer2`
-  ResNet18 zamrożone (ogólne cechy niskiego poziomu), `layer3`/`layer4`/`fc`
-  trenowane. Kompromis jakość/czas treningu na CPU.
+- **Train/val/test split (70/15/15) grouped by tablet**, not by individual
+  image — the same sign from the same tablet never ends up in two splits at
+  once. Verified with unit tests (`tests/test_no_leakage.py`, 8 tests,
+  including an explicit check for no overlap between tablet sets).
+- **Class weights** (inverse frequency) in the loss function — moderate
+  imbalance (~5x between the most and least frequent of the top-30 classes).
+- **Model selected by macro-F1 on val, not accuracy** — to avoid favoring
+  frequent classes.
+- **Augmentation without mirror flips.** A standard `RandomHorizontalFlip`
+  would be a methodological error here — mirroring a cuneiform sign changes
+  its identity. Only small rotation (±8°) and light brightness/contrast
+  jitter were used.
+- **Transfer learning with partial freezing** — ResNet18's `layer1`/`layer2`
+  frozen (general low-level features), `layer3`/`layer4`/`fc` trained. A
+  quality/training-time trade-off for CPU training.
 
-## Wyniki szczegółowe
+## Detailed Results
 
 ### Confusion matrix
 
 ![Confusion matrix](eda_outputs/confusion_matrix.png)
 
-Wyraźna przekątna — model systematycznie poprawny, błędy nieliczne i
-skoncentrowane. Top pomyłki (`LUGAL→LU2`, `A↔MIN_(2)`) są wytłumaczalne
-wizualnym podobieństwem komponentów graficznych znaków, nie są losowe —
-potwierdzone geometrycznie w analizie embeddingów poniżej.
+A clear diagonal — the model is systematically correct, with errors that are
+rare and concentrated. The top confusions (`LUGAL→LU2`, `A↔MIN_(2)`) are
+explainable by visual similarity of the signs' graphical components, not
+random — confirmed geometrically in the embedding analysis below.
 
-### Odkrycie: dryf paleograficzny znaku `U`
+### Discovery: paleographic drift of the sign `U`
 
-EDA na przykładowych obrazach ujawniło, że znak `U` (liczba "10") ma
-**fizycznie różną formę** w zależności od okresu historycznego: okrągłe
-wgłębienie w najstarszych tabliczkach (ED IIIa/b, ~2500-2600 BC) vs wyraźny
-trójkątny klin w młodszych okresach. To udokumentowane zjawisko
-paleograficzne — wczesne pismo klinowe częściowo używało okrągłego rylca do
-zapisu liczb.
+EDA on sample images revealed that the sign `U` (the number "10") has a
+**physically different form** depending on the historical period: a round
+indentation in the oldest tablets (ED IIIa/b, ~2500-2600 BC) vs. a clear
+triangular wedge in later periods. This is a documented paleographic
+phenomenon — early cuneiform partly used a round stylus for writing numbers.
 
-**Zweryfikowane ilościowo** (`evaluate.py`, accuracy per okres):
+**Verified quantitatively** (`evaluate.py`, accuracy per period):
 
-| Okres | Accuracy dla `U` |
+| Period | Accuracy for `U` |
 |---|---|
 | Ur III, Old Assyrian, Old Babylonian, Old Akkadian, Early OB | 100% |
 | **ED IIIb (ca. 2500-2340 BC)** | **43% (3/7)** |
 
-**Zweryfikowane geometrycznie** (`embeddings.py`, t-SNE na wektorach cech
-512-wym.): znak `U` tworzy **dwa całkowicie oddzielone skupiska** w
-przestrzeni cech modelu, odpowiadające dwóm wariantom graficznym — podczas
-gdy np. `ASZ` (100% accuracy niezależnie od okresu) tworzy jedno spójne
-skupisko. Model "widzi" ten sam błąd, który człowiek widzi na oko.
+**Verified geometrically** (`embeddings.py`, t-SNE on 512-dim feature
+vectors): the sign `U` forms **two completely separate clusters** in the
+model's feature space, corresponding to the two graphical variants — whereas,
+e.g., `ASZ` (100% accuracy regardless of period) forms a single coherent
+cluster. The model "sees" the same discrepancy a human notices visually.
 
-To pokazuje ograniczenie modelu wynikające wprost z niezbalansowania
-danych treningowych (64% danych to Ur III) — nie z wady architektury.
+This shows a model limitation stemming directly from the imbalance in the
+training data (64% of it is Ur III) — not from an architectural flaw.
 
-### Interpretowalność (Grad-CAM)
+### Interpretability (Grad-CAM)
 
-Aplikacja demo wizualizuje Grad-CAM dla każdej predykcji — potwierdza, że
-model opiera decyzje na samym znaku (nie na teksturze gliny w tle).
+The demo app visualizes Grad-CAM for every prediction — confirming that the
+model bases its decisions on the sign itself (not on the clay texture in the
+background).
 
 ## Demo (Streamlit)
 
-Interaktywna aplikacja: wybór przykładu z galerii testowej → predykcja top-1
-+ top-3 z pewnością → ostrzeżenie przy niskiej pewności → wizualizacja
-Grad-CAM.
+An interactive app: pick an example from the test gallery → top-1 prediction
++ top-3 with confidence → a warning on low confidence → Grad-CAM
+visualization.
 
 ```bash
 streamlit run app.py
 ```
 
-lub przez Docker (patrz niżej).
+or via Docker (see below).
 
-## Struktura projektu
+## Project structure
 
 ```
 cuneiform-sign-classifier/
 ├── src/
 │   ├── __init__.py
-│   └── data.py              # DataLoadery, augmentacja, class weights
+│   └── data.py              # DataLoaders, augmentation, class weights
 ├── tests/
-│   └── test_no_leakage.py   # 8 testów integralności datasetu
-├── build_dataset.py          # Parsowanie datasetu, filtrowanie top-N, split
-├── eda.py                    # Rozkład klas/okresów, wymiary obrazów, próbki
-├── train.py                  # Trening (transfer learning, wznawianie)
-├── evaluate.py                # Confusion matrix, analiza błędów per-okres
-├── embeddings.py              # Wizualizacja t-SNE przestrzeni cech
-├── app.py                     # Demo Streamlit + Grad-CAM
+│   └── test_no_leakage.py   # 8 dataset integrity tests
+├── build_dataset.py          # Dataset parsing, top-N filtering, split
+├── eda.py                    # Class/period distribution, image size, samples
+├── train.py                  # Training (transfer learning, resumable)
+├── evaluate.py                # Confusion matrix, per-period error analysis
+├── embeddings.py              # t-SNE visualization of the feature space
+├── app.py                     # Streamlit demo + Grad-CAM
 ├── Dockerfile / .dockerignore
 ├── requirements.txt
-└── eda_outputs/                # Wygenerowane wykresy (w repo, do README)
+└── eda_outputs/                # Generated plots (kept in repo for README)
 ```
 
-## Odtworzenie projektu od zera
+## Reproducing the project from scratch
 
 ```bash
 conda create -n TABL python=3.11 -y
@@ -156,17 +156,17 @@ conda install pytorch torchvision cpuonly -c pytorch -y
 conda install -c conda-forge pandas numpy pillow matplotlib jupyter scikit-learn seaborn tqdm -y
 pip install pytest streamlit
 
-# 1. Pobierz MaiCuBeDa Hilprecht: https://doi.org/10.11588/DATA/QSNIQ2
-#    (translitmetadata.csv + jeden z zipow z obrazami, np. MSII)
-# 2. Zbuduj dataset (dostosuj sciezki w CONFIG na gorze pliku)
+# 1. Download MaiCuBeDa Hilprecht: https://doi.org/10.11588/DATA/QSNIQ2
+#    (translitmetadata.csv + one of the image zips, e.g. MSII)
+# 2. Build the dataset (adjust paths in the CONFIG section at the top of the file)
 python build_dataset.py
-# 3. Zweryfikuj brak wycieku danych
+# 3. Verify there is no data leakage
 pytest tests/test_no_leakage.py -v
-# 4. EDA (opcjonalnie)
+# 4. EDA (optional)
 python eda.py
-# 5. Trening (wznawialny - bezpiecznie przerwac i uruchomic ponownie)
+# 5. Training (resumable - safe to interrupt and re-run)
 python train.py
-# 6. Ewaluacja i analiza bledow
+# 6. Evaluation and error analysis
 python evaluate.py
 python embeddings.py
 # 7. Demo
@@ -175,32 +175,31 @@ streamlit run app.py
 
 ### Docker
 
-**Uwaga:** budowanie obrazu wymaga lokalnie już wytrenowanego
-`checkpoints/best_model.pt` (checkpoint nie jest częścią repozytorium —
-patrz `.gitignore` — więc najpierw przejdź przez krok 5 powyżej, `python
-train.py`).
+**Note:** building the image requires a locally trained
+`checkpoints/best_model.pt` (the checkpoint is not part of the repository —
+see `.gitignore` — so run step 5 above, `python train.py`, first).
 
 ```bash
 docker build -t cuneiform-sign-classifier .
 docker run -p 8501:8501 cuneiform-sign-classifier
 ```
 
-## Ograniczenia i dalsze kierunki
+## Limitations and future directions
 
-- **Tylko top-30 klas** — pełny sylabariusz klinowy ma setki znaków z silnym
-  long-tail (93 klasy z tylko 1 przykładem w całym datasecie). Rozszerzenie
-  wymagałoby albo few-shot learningu, albo oversamplingu rzadkich klas.
-- **Niezbalansowanie okresów historycznych** (64% Ur III) ogranicza
-  generalizację na starsze warianty graficzne — udokumentowane wprost na
-  przykładzie znaku `U`.
-- **Klasyfikacja, nie detekcja** — model zakłada, że znak jest już wycięty z
-  tabliczki. Naturalne rozszerzenie: pipeline detekcji + klasyfikacji na
-  całej tabliczce (por. eBL, arXiv:2606.22608).
-- Rendering **MSII** użyty do treningu; dataset udostępnia też
-  `VirtualLight` — nieprzetestowane pytanie, czy łączenie renderingów
-  poprawiłoby generalizację.
+- **Only the top-30 classes** — the full cuneiform sign inventory has
+  hundreds of signs with a strong long tail (93 classes have only 1 example
+  in the entire dataset). Extending this would require either few-shot
+  learning or oversampling rare classes.
+- **Imbalance across historical periods** (64% Ur III) limits generalization
+  to older graphical variants — directly documented via the sign `U`.
+- **Classification, not detection** — the model assumes the sign has already
+  been cropped from the tablet. A natural extension: a detection +
+  classification pipeline on the full tablet (cf. eBL, arXiv:2606.22608).
+- The **MSII** rendering was used for training; the dataset also provides
+  `VirtualLight` — whether combining renderings would improve generalization
+  remains untested.
 
-## Cytowanie / źródła danych
+## Citation / data sources
 
 - Homburg, T., Mara, H. (2023). *MaiCuBeDa Hilprecht — Mainz Cuneiform
   Benchmark Dataset*. Heidelberg University. CC BY-SA 4.0.
@@ -209,7 +208,7 @@ docker run -p 8501:8501 cuneiform-sign-classifier
 - Automated sign detection across the Electronic Babylonian Library (2026).
   arXiv:2606.22608
 
-## Autor
+## Author
 
 Sławomir Strzelec — AI/ML Engineer & Data Scientist, Kraków
 [Portfolio](https://slastrzelec.github.io/portfolio/) ·
