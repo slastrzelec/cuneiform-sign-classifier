@@ -1,0 +1,37 @@
+# Dane - duze, regenerowalne przez build_dataset.py (nie commitujemy do repo)
+data/processed/
+data/raw/
+files/
+
+# Wytrenowane modele - duze binaria, nie naleza do kodu zrodlowego
+# (jesli chcesz udostepnic wytrenowany model, rozwaz Git LFS albo link
+# do zewnetrznego storage w README zamiast commitowania .pt bezposrednio)
+checkpoints/
+
+# UWAGA: eda_outputs/ CELOWO NIE jest tutaj - te obrazki sa linkowane
+# w README.md i maja byc widoczne na GitHubie
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Srodowiska wirtualne (jesli ktos uzyje venv zamiast conda)
+venv/
+env/
+.venv/
+
+# Edytory / IDE
+.vscode/
+.idea/
+*.swp
+
+# System
+.DS_Store
+Thumbs.db
+
+# Docker (lokalne build artefakty jesli jakies powstana)
+*.log

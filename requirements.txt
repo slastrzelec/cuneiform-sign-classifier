@@ -1,0 +1,12 @@
+# CPU-only wersja PyTorch/torchvision - znaczaco mniejszy obraz Dockera
+# niz domyslne kolo z pelnym wsparciem CUDA (setki MB zaoszczedzone)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+
+streamlit
+scikit-learn
+matplotlib
+pillow
+numpy
+tqdm

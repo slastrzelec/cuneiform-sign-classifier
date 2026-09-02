@@ -1,0 +1,23 @@
+# Duze/niepotrzebne w obrazie - trening danych nie jest potrzebny do
+# uruchomienia demo, tylko galeria z test/ (kopiowana jawnie w Dockerfile)
+data/processed/train
+data/processed/val
+data/raw
+files/
+
+# Wyniki analiz - nie sa czescia dzialajacej aplikacji
+eda_outputs/
+
+# Duzy checkpoint z pelnym stanem optymalizatora - niepotrzebny do inferencji
+checkpoints/last_model.pt
+
+# Standardowe smieci
+.git
+.gitignore
+__pycache__/
+*.pyc
+.pytest_cache/
+notebooks/
+.ipynb_checkpoints/
+*.md
+README.md
