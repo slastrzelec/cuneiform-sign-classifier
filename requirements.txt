@@ -1,12 +1,16 @@
-# CPU-only wersja PyTorch/torchvision - znaczaco mniejszy obraz Dockera
-# niz domyslne kolo z pelnym wsparciem CUDA (setki MB zaoszczedzone)
+# CPU-only version of PyTorch/torchvision - significantly smaller Docker
+# image / faster Streamlit Cloud build than the default full CUDA wheel.
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch
-torchvision
+torch==2.14.0
+torchvision==0.29.0
 
-streamlit
-scikit-learn
-matplotlib
-pillow
-numpy
-tqdm
+streamlit==1.63.0
+scikit-learn==1.9.0
+matplotlib==3.11.1
+pillow==12.3.0
+numpy==2.4.6
+tqdm==4.70.0
+
+# Used by app.py to fetch the trained checkpoint from the Hugging Face Hub
+# on a fresh deployment, since best_model.pt (~123MB) is gitignored.
+huggingface_hub==1.30.0
