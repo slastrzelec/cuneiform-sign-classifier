@@ -21,22 +21,43 @@ import torch.nn.functional as F
 import numpy as np
 from PIL import Image
 import matplotlib.cm as cm
+from huggingface_hub import hf_hub_download
 
 from src.data import get_transforms, IMAGENET_MEAN, IMAGENET_STD
 from train import build_model, CHECKPOINT_DIR
 
 # ============== CONFIG ==============
 DATA_DIR = Path("data/processed")
+# Full test set (data/processed/test) is gitignored - regenerable locally via
+# build_dataset.py. On a fresh deployment (e.g. Streamlit Community Cloud)
+# it won't exist, so we fall back to the small curated gallery committed to
+# the repo (demo_samples/, ~120 images, a handful per class).
 TEST_DIR = DATA_DIR / "test"
+DEMO_DIR = Path("demo_samples")
+GALLERY_DIR = TEST_DIR if TEST_DIR.exists() else DEMO_DIR
 IMAGE_SIZE = 224
 LOW_CONFIDENCE_THRESHOLD = 0.50
+
+# Hugging Face Hub repo hosting the trained checkpoint, since best_model.pt
+# (~123MB) is gitignored and too large to commit to GitHub directly.
+# Update HF_REPO_ID after you've uploaded the model to your own HF account.
+HF_REPO_ID = "slastrzelec/cuneiform-sign-classifier"
+HF_FILENAME = "best_model.pt"
 # =====================================
 
 
 # ---------- Ladowanie modelu (cache, zeby nie ladowac przy kazdej interakcji) ----------
 @st.cache_resource
 def load_model():
-    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", map_location="cpu", weights_only=False)
+    local_path = CHECKPOINT_DIR / "best_model.pt"
+    if local_path.exists():
+        checkpoint_path = local_path
+    else:
+        # Not present locally (e.g. fresh deployment) - fetch from HF Hub.
+        # hf_hub_download caches the file, so this only downloads once.
+        checkpoint_path = Path(hf_hub_download(repo_id=HF_REPO_ID, filename=HF_FILENAME))
+
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     class_names = checkpoint["class_names"]
     model = build_model(num_classes=len(class_names))
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -48,7 +69,7 @@ def load_model():
 def list_test_examples():
     """Zwraca slownik {charname: [lista sciezek do plikow]}."""
     examples = {}
-    for class_dir in sorted(TEST_DIR.iterdir()):
+    for class_dir in sorted(GALLERY_DIR.iterdir()):
         if class_dir.is_dir():
             files = sorted(class_dir.glob("*.png")) + sorted(class_dir.glob("*.jpg"))
             if files:
@@ -140,7 +161,7 @@ selected_class = st.sidebar.selectbox("Prawdziwa klasa (ground truth)", list(exa
 file_options = [f.name for f in examples[selected_class]]
 selected_file = st.sidebar.selectbox("Plik", file_options)
 
-selected_path = TEST_DIR / selected_class / selected_file
+selected_path = GALLERY_DIR / selected_class / selected_file
 image = Image.open(selected_path)
 
 col1, col2, col3 = st.columns(3)

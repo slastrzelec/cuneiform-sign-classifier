@@ -127,6 +127,38 @@ streamlit run app.py
 
 or via Docker (see below).
 
+**Live demo:** _add your Streamlit Community Cloud URL here once deployed_
+
+### Deploying to Streamlit Community Cloud
+
+The trained checkpoint (`checkpoints/best_model.pt`, ~123MB) and the full
+test set (`data/processed/`) are gitignored — too large/regenerable to
+commit. To make the app runnable from a fresh clone (which is what
+Streamlit Community Cloud does):
+
+- A small curated gallery of test images is committed under
+  `demo_samples/` (~120 images, a handful per class) — `app.py` falls back
+  to it automatically whenever `data/processed/test` isn't present.
+- The model checkpoint is fetched at runtime from the **Hugging Face
+  Hub** instead of being committed to the repo.
+
+Steps:
+
+1. Create a free account at [huggingface.co](https://huggingface.co) if you
+   don't have one.
+2. Create a new **Model** repo (e.g. `<your-username>/cuneiform-sign-classifier`).
+3. Upload `checkpoints/best_model.pt` to it (web UI "Add file", or the `huggingface_hub` CLI:
+   `huggingface-cli upload <your-username>/cuneiform-sign-classifier checkpoints/best_model.pt`).
+4. In `app.py`, set `HF_REPO_ID` to that repo id (it defaults to
+   `slastrzelec/cuneiform-sign-classifier`).
+5. Commit and push (`app.py`, `requirements.txt`, `demo_samples/`).
+6. On [share.streamlit.io](https://share.streamlit.io), create a new app
+   pointing at this repo, branch `main`, main file path `app.py`.
+
+The first load after a deploy/restart will be a bit slower while the
+checkpoint downloads from HF Hub (~123MB); `st.cache_resource` keeps it
+in memory afterwards, and `huggingface_hub` caches the file on disk too.
+
 ## Project structure
 
 ```
