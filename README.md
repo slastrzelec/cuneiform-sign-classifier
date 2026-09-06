@@ -127,7 +127,7 @@ streamlit run app.py
 
 or via Docker (see below).
 
-**Live demo:** _add your Streamlit Community Cloud URL here once deployed_
+**Live demo:** https://cuneiform-sign-classifier.streamlit.app/
 
 ### Deploying to Streamlit Community Cloud
 
