@@ -1,4 +1,4 @@
 # Extra dependencies for training / evaluation / EDA (not needed by the demo).
 -r requirements.txt
 scikit-learn==1.9.0
-tqdm==4.70.0
+tqdm==4.70.1
