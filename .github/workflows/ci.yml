@@ -19,7 +19,7 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Lint
         run: ruff check .
-      - name: Tests (synthetic data only: no dataset, no checkpoint, no network)
+      - name: "Tests (synthetic data only - no dataset, no checkpoint, no network)"
         run: pytest -q
 
   audit:
