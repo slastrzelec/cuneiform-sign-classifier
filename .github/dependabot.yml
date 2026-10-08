@@ -5,6 +5,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # torch/torchvision are pinned as a matched pair from the CPU wheel index;
+      # bump them manually together (Dependabot proposes "+cpu" local versions).
+      - dependency-name: "torch"
+      - dependency-name: "torchvision"
+      # major releases of huggingface-hub change the download API: review manually
+      - dependency-name: "huggingface-hub"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
