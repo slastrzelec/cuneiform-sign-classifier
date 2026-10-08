@@ -21,16 +21,16 @@ Uzycie:
     python train.py
 """
 
-from pathlib import Path
 import time
+from pathlib import Path
 
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18, ResNet18_Weights
-from sklearn.metrics import f1_score, classification_report
+from sklearn.metrics import classification_report, f1_score
 from tqdm import tqdm
 
 from src.data import get_dataloaders
+from src.model import build_model  # noqa: F401  (re-exported for evaluate.py)
 
 # ============== CONFIG ==============
 DATA_DIR = Path("data/processed")
@@ -51,21 +51,6 @@ _last_ckpt = CHECKPOINT_DIR / "last_model.pt"
 _best_ckpt = CHECKPOINT_DIR / "best_model.pt"
 RESUME_FROM = _last_ckpt if _last_ckpt.exists() else _best_ckpt
 # =====================================
-
-
-def build_model(num_classes: int):
-    model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
-
-    # Zamroz wczesne warstwy (layer1, layer2, conv1, bn1)
-    for name, param in model.named_parameters():
-        if name.startswith("layer3") or name.startswith("layer4") or name.startswith("fc"):
-            param.requires_grad = True
-        else:
-            param.requires_grad = False
-
-    # Podmien ostatnia warstwe pod nasza liczbe klas
-    model.fc = nn.Linear(model.fc.in_features, num_classes)
-    return model
 
 
 def run_epoch(model, loader, criterion, optimizer=None):
@@ -98,7 +83,7 @@ def run_epoch(model, loader, criterion, optimizer=None):
 
     avg_loss = total_loss / len(loader.dataset)
     macro_f1 = f1_score(all_labels, all_preds, average="macro", zero_division=0)
-    accuracy = sum(p == l for p, l in zip(all_preds, all_labels)) / len(all_labels)
+    accuracy = sum(p == y for p, y in zip(all_preds, all_labels, strict=True)) / len(all_labels)
     return avg_loss, accuracy, macro_f1, all_preds, all_labels
 
 
@@ -132,7 +117,7 @@ def main():
     # --- Wznowienie treningu z checkpointu, jesli istnieje ---
     if RESUME_FROM is not None and Path(RESUME_FROM).exists():
         print(f"Wznawiam trening z checkpointu: {RESUME_FROM}")
-        checkpoint = torch.load(RESUME_FROM, weights_only=False)
+        checkpoint = torch.load(RESUME_FROM, weights_only=True)
         model.load_state_dict(checkpoint["model_state_dict"])
         best_val_f1 = checkpoint.get("val_f1", -1.0)
         start_epoch = checkpoint.get("epoch", 0) + 1
@@ -184,8 +169,8 @@ def main():
             "optimizer_state_dict": optimizer.state_dict(),
             "class_names": class_names,
             "epoch": epoch,
-            "val_f1": val_f1,
-            "val_acc": val_acc,
+            "val_f1": float(val_f1),  # plain float: loads with weights_only=True
+            "val_acc": float(val_acc),
         }, last_checkpoint_path)
 
         if val_f1 > best_val_f1:
@@ -196,14 +181,14 @@ def main():
                 "optimizer_state_dict": optimizer.state_dict(),
                 "class_names": class_names,
                 "epoch": epoch,
-                "val_f1": val_f1,
-                "val_acc": val_acc,
+                "val_f1": float(val_f1),  # plain float: loads with weights_only=True
+                "val_acc": float(val_acc),
             }, best_checkpoint_path)
             print(f"  -> Nowy najlepszy model zapisany (val_f1={val_f1:.3f})")
 
     print("\n" + "=" * 60)
     print("Trening zakonczony. Ladowanie najlepszego checkpointu do ewaluacji na TEST...")
-    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", weights_only=False)
+    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", weights_only=True)
     model.load_state_dict(checkpoint["model_state_dict"])
 
     test_loss, test_acc, test_f1, test_preds, test_labels = run_epoch(model, test_loader, criterion)

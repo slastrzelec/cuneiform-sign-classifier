@@ -13,21 +13,20 @@ Uzycie:
     python evaluate.py
 """
 
-from pathlib import Path
-from collections import defaultdict, Counter
 import re
+from collections import Counter, defaultdict
+from pathlib import Path
 
-import torch
-import torch.nn as nn
-import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
+import torch
+from sklearn.metrics import confusion_matrix, f1_score
 
 from src.data import get_dataloaders
-from train import build_model, DATA_DIR, IMAGE_SIZE, BATCH_SIZE, DEVICE, CHECKPOINT_DIR
+from src.metrics import wilson_interval
+from train import BATCH_SIZE, CHECKPOINT_DIR, DATA_DIR, DEVICE, IMAGE_SIZE, build_model
 
 # ============== CONFIG ==============
-TRANSLIT_CSV = Path(r"C:\Users\slast\PYTHON\0_projekty do portfolio\20_cuneiform-sign-classifier\files\translitmetadata.csv")
+TRANSLIT_CSV = Path(__file__).resolve().parent / "files" / "translitmetadata.csv"
 OUTPUT_DIR = Path("eda_outputs")
 NUMERIC_SIGNS_OF_INTEREST = ["U", "ASZ", "DISZ_(1)", "MIN_(2)"]  # znaki z wątpliwości EDA
 # =====================================
@@ -70,8 +69,8 @@ def main():
         DATA_DIR, batch_size=BATCH_SIZE, image_size=IMAGE_SIZE
     )
 
-    model = build_model(num_classes=len(class_names)).to(DEVICE)
-    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", weights_only=False)
+    model = build_model(num_classes=len(class_names), pretrained=False).to(DEVICE)
+    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", weights_only=True)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
     print(f"Wczytano model z epoki {checkpoint['epoch']}, val_f1={checkpoint['val_f1']:.3f}\n")
@@ -89,6 +88,16 @@ def main():
             all_labels.extend(labels.cpu().tolist())
 
     assert len(all_preds) == len(test_info), "Niezgodna liczba predykcji i plikow"
+
+    # ========== 0. OVERALL TEST METRICS WITH 95 % INTERVAL ==========
+    n_test = len(all_labels)
+    n_correct = sum(p == y for p, y in zip(all_preds, all_labels, strict=True))
+    low, high = wilson_interval(n_correct, n_test)
+    macro_f1 = f1_score(all_labels, all_preds, average="macro", zero_division=0)
+    print("=" * 60)
+    print(f"TEST SET: n = {n_test}, accuracy = {n_correct / n_test:.4f} "
+          f"(95% Wilson CI {low:.3f}-{high:.3f}), macro-F1 = {macro_f1:.4f}")
+    print("=" * 60 + "\n")
 
     # ========== 1. CONFUSION MATRIX ==========
     print("Generuje confusion matrix...")
@@ -129,7 +138,6 @@ def main():
     print("=" * 60)
 
     tablet_period = build_tablet_period_map(TRANSLIT_CSV)
-    idx_to_class = {i: c for i, c in enumerate(class_names)}
 
     for sign in NUMERIC_SIGNS_OF_INTEREST:
         if sign not in class_names:
@@ -138,7 +146,7 @@ def main():
 
         period_correct = defaultdict(int)
         period_total = defaultdict(int)
-        for (filepath, true_label, tablet), pred_label in zip(test_info, all_preds):
+        for (_filepath, true_label, tablet), pred_label in zip(test_info, all_preds, strict=True):
             if true_label != sign_idx:
                 continue
             period = tablet_period.get(tablet, "nieznany")

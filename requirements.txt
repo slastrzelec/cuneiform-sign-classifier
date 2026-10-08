@@ -1,16 +1,14 @@
-# CPU-only version of PyTorch/torchvision - significantly smaller Docker
-# image / faster Streamlit Cloud build than the default full CUDA wheel.
+# Runtime dependencies of the Streamlit demo (also used by Streamlit Community Cloud).
+# CPU-only PyTorch: much smaller image / faster build than the default CUDA wheel.
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.14.0
 torchvision==0.29.0
 
 streamlit==1.63.0
-scikit-learn==1.9.0
 matplotlib==3.11.1
 pillow==12.3.0
 numpy==2.4.6
-tqdm==4.70.0
 
-# Used by app.py to fetch the trained checkpoint from the Hugging Face Hub
-# on a fresh deployment, since best_model.pt (~123MB) is gitignored.
+# Fetches the trained checkpoint from the Hugging Face Hub on a fresh deployment
+# (best_model.pt, ~123 MB, is not stored in git).
 huggingface_hub==1.30.0

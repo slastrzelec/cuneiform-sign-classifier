@@ -18,13 +18,12 @@ malej rotacji i lekkich zmian jasnosci/kontrastu, ktore odpowiadaja
 naturalnej zmiennosci warunkow renderowania/oswietlenia tabliczki.
 """
 
-from pathlib import Path
 from collections import Counter
+from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]

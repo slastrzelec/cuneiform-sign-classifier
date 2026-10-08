@@ -23,21 +23,20 @@ Uzycie:
     python embeddings.py
 """
  
-from pathlib import Path
-from collections import defaultdict, Counter
 import re
- 
-import torch
-import numpy as np
+from collections import Counter, defaultdict
+from pathlib import Path
+
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+import numpy as np
+import torch
 from sklearn.manifold import TSNE
- 
+
 from src.data import get_dataloaders
-from train import build_model, DATA_DIR, IMAGE_SIZE, BATCH_SIZE, DEVICE, CHECKPOINT_DIR
- 
+from train import BATCH_SIZE, CHECKPOINT_DIR, DATA_DIR, DEVICE, IMAGE_SIZE, build_model
+
 # ============== CONFIG ==============
-TRANSLIT_CSV = Path(r"C:\Users\slast\PYTHON\0_projekty do portfolio\20_cuneiform-sign-classifier\files\translitmetadata.csv")
+TRANSLIT_CSV = Path(__file__).resolve().parent / "files" / "translitmetadata.csv"
 OUTPUT_DIR = Path("eda_outputs")
 NUMERIC_SIGNS_OF_INTEREST = ["U", "ASZ", "DISZ_(1)", "MIN_(2)"]
 RANDOM_SEED = 42
@@ -100,8 +99,8 @@ def main():
     _, _, test_loader, class_names, _ = get_dataloaders(
         DATA_DIR, batch_size=BATCH_SIZE, image_size=IMAGE_SIZE
     )
-    model = build_model(num_classes=len(class_names)).to(DEVICE)
-    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", weights_only=False)
+    model = build_model(num_classes=len(class_names), pretrained=False).to(DEVICE)
+    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", weights_only=True)
     model.load_state_dict(checkpoint["model_state_dict"])
     print(f"Model wczytany (epoka {checkpoint['epoch']})\n")
  

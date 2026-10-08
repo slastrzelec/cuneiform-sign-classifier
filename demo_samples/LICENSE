@@ -1,0 +1,15 @@
+The images in this folder are a small selection of sign crops from the dataset
+
+  Homburg, T., Mara, H. (2023). MaiCuBeDa Hilprecht - Mainz Cuneiform Benchmark Dataset.
+  Heidelberg University. https://doi.org/10.11588/DATA/QSNIQ2
+
+which is released under the Creative Commons Attribution-ShareAlike 4.0 International
+licence (CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
+
+The images are the dataset's sign-level annotation crops (MSII rendering), selected per class
+for the demo gallery; they were not otherwise altered. You may share and adapt them under the
+terms of CC BY-SA 4.0: give appropriate credit (the citation above), indicate changes, and
+distribute derivatives under the same licence.
+
+The licence of this folder applies to these images only. The source code of the repository is
+licensed separately under the MIT licence (see ../LICENSE).

@@ -21,3 +21,7 @@ notebooks/
 .ipynb_checkpoints/
 *.md
 README.md
+data/
+checkpoints/
+tests/
+.github/

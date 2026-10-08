@@ -6,7 +6,7 @@ demonstrating a full ML workflow: exploring a niche, challenging dataset,
 methodologically sound training, and deep error analysis connecting model
 results with domain knowledge (paleography).
 
-![Grad-CAM demo](eda_outputs/embeddings_period_drift.png)
+![t-SNE of the model's feature space, coloured by historical period](eda_outputs/embeddings_period_drift.png)
 
 ## Why this project
 
@@ -23,13 +23,18 @@ metadata, and domain-specific data augmentation.
 | Metric | Result |
 |---|---|
 | Number of classes | Top 30 most frequent signs |
-| Test accuracy | 90.4% |
+| Test set | 1,699 sign images, grouped by tablet |
+| Test accuracy | 90.4% (95 % Wilson CI 88.9–91.7 %) |
 | Test macro-F1 | 0.896 |
 | Model | ResNet18 (transfer learning), CPU-only |
 | Dataset | [MaiCuBeDa Hilprecht](https://doi.org/10.11588/DATA/QSNIQ2) |
 
-Full per-class `classification_report` produced by `evaluate.py` / see the
-[Detailed Results](#detailed-results) section below.
+The size of the test set and the confidence interval are printed by `python evaluate.py`;
+the per-class analysis is in [Detailed Results](#detailed-results) below. The test split is
+grouped by tablet (see Methodology). Model selection (which checkpoint to keep) used the
+validation macro-F1 only; the test set was not used for tuning. It is a single grouped split,
+so the interval reflects sampling noise on these 1,699 images, not variation between
+different splits.
 
 ## Dataset
 
@@ -60,8 +65,9 @@ readings, only 18 ambiguous, resolved by majority vote).
 
 - **Train/val/test split (70/15/15) grouped by tablet**, not by individual
   image — the same sign from the same tablet never ends up in two splits at
-  once. Verified with unit tests (`tests/test_no_leakage.py`, 8 tests,
-  including an explicit check for no overlap between tablet sets).
+  once. The splitting code is unit-tested on synthetic tablets (no overlap, every tablet
+  assigned once, deterministic for a seed), and the manifest of the real split is
+  checked by `tests/test_no_leakage.py` when the dataset is present locally.
 - **Class weights** (inverse frequency) in the loss function — moderate
   imbalance (~5x between the most and least frequent of the top-30 classes).
 - **Model selected by macro-F1 on val, not accuracy** — to avoid favoring
@@ -70,9 +76,11 @@ readings, only 18 ambiguous, resolved by majority vote).
   would be a methodological error here — mirroring a cuneiform sign changes
   its identity. Only small rotation (±8°) and light brightness/contrast
   jitter were used.
-- **Transfer learning with partial freezing** — ResNet18's `layer1`/`layer2`
-  frozen (general low-level features), `layer3`/`layer4`/`fc` trained. A
-  quality/training-time trade-off for CPU training.
+- **Transfer learning with partial freezing** — ResNet18's `conv1`/`layer1`/`layer2`
+  receive no gradient updates (general low-level features), `layer3`/`layer4`/`fc`
+  are trained. A quality/training-time trade-off for CPU training. "Frozen" means no
+  gradient updates: the BatchNorm running statistics of those layers still adapt in
+  train mode.
 
 ## Detailed Results
 
@@ -93,12 +101,12 @@ indentation in the oldest tablets (ED IIIa/b, ~2500-2600 BC) vs. a clear
 triangular wedge in later periods. This is a documented paleographic
 phenomenon — early cuneiform partly used a round stylus for writing numbers.
 
-**Verified quantitatively** (`evaluate.py`, accuracy per period):
+**Indicative, from a small sample** (`evaluate.py`, accuracy per period):
 
 | Period | Accuracy for `U` |
 |---|---|
 | Ur III, Old Assyrian, Old Babylonian, Old Akkadian, Early OB | 100% |
-| **ED IIIb (ca. 2500-2340 BC)** | **43% (3/7)** |
+| **ED IIIb (ca. 2500-2340 BC)** | **43% (3/7; 95 % Wilson CI 16-75 %)** |
 
 **Verified geometrically** (`embeddings.py`, t-SNE on 512-dim feature
 vectors): the sign `U` forms **two completely separate clusters** in the
@@ -106,14 +114,17 @@ model's feature space, corresponding to the two graphical variants — whereas,
 e.g., `ASZ` (100% accuracy regardless of period) forms a single coherent
 cluster. The model "sees" the same discrepancy a human notices visually.
 
-This shows a model limitation stemming directly from the imbalance in the
-training data (64% of it is Ur III) — not from an architectural flaw.
+With only 7 ED IIIb examples in the test set the interval is wide: the accuracy drop is a strong hint, not a
+proof, and the t-SNE picture is the stronger evidence. The likely cause is the imbalance in the
+training data (64% of it is Ur III) rather than an architectural flaw — a hypothesis that
+would need more ED IIIb examples to confirm.
 
 ### Interpretability (Grad-CAM)
 
-The demo app visualizes Grad-CAM for every prediction — confirming that the
-model bases its decisions on the sign itself (not on the clay texture in the
-background).
+The demo app shows a Grad-CAM overlay for every prediction. It is a qualitative
+sanity check — on the examples I looked at, the highlighted regions lie on the sign
+rather than on the clay background — not a quantitative proof that the model never
+uses background cues.
 
 ## Demo (Streamlit)
 
@@ -125,58 +136,85 @@ visualization.
 streamlit run app.py
 ```
 
-or via Docker (see below).
-
 **Live demo:** https://cuneiform-sign-classifier.streamlit.app/
 
-### Deploying to Streamlit Community Cloud
+### How the app gets its model and images
 
-The trained checkpoint (`checkpoints/best_model.pt`, ~123MB) and the full
-test set (`data/processed/`) are gitignored — too large/regenerable to
-commit. To make the app runnable from a fresh clone (which is what
-Streamlit Community Cloud does):
+The trained checkpoint (`checkpoints/best_model.pt`, ~123 MB) and the full test
+set (`data/processed/`) are gitignored — too large, and regenerable. So that the
+app runs from a fresh clone (which is what Streamlit Community Cloud does):
 
-- A small curated gallery of test images is committed under
-  `demo_samples/` (~120 images, a handful per class) — `app.py` falls back
-  to it automatically whenever `data/processed/test` isn't present.
-- The model checkpoint is fetched at runtime from the **Hugging Face
-  Hub** instead of being committed to the repo.
+- a small curated gallery of test images is committed under `demo_samples/`
+  (~120 images, a handful per class); `app.py` falls back to it whenever
+  `data/processed/test` is not present;
+- the checkpoint is fetched at runtime from the **Hugging Face Hub**
+  (`HF_REPO_ID` in `app.py`; `HF_REVISION` can pin it to an exact commit of the
+  model repo).
 
-Steps:
+**Safe loading.** A PyTorch checkpoint is a pickle file, and loading an untrusted
+pickle can run arbitrary code. Every `torch.load` in this project uses
+`weights_only=True` (a restricted unpickler that accepts only tensors and plain
+containers), so a tampered checkpoint is rejected instead of executed. A test
+builds a malicious checkpoint and checks that its payload does not run.
 
-1. Create a free account at [huggingface.co](https://huggingface.co) if you
-   don't have one.
-2. Create a new **Model** repo (e.g. `<your-username>/cuneiform-sign-classifier`).
-3. Upload `checkpoints/best_model.pt` to it (web UI "Add file", or the `huggingface_hub` CLI:
-   `huggingface-cli upload <your-username>/cuneiform-sign-classifier checkpoints/best_model.pt`).
-4. In `app.py`, set `HF_REPO_ID` to that repo id (it defaults to
-   `slastrzelec/cuneiform-sign-classifier`).
-5. Commit and push (`app.py`, `requirements.txt`, `demo_samples/`).
-6. On [share.streamlit.io](https://share.streamlit.io), create a new app
-   pointing at this repo, branch `main`, main file path `app.py`.
+To use your own checkpoint: upload `checkpoints/best_model.pt` to a model repo on
+the Hub, set `HF_REPO_ID` (and optionally `HF_REVISION`) in `app.py`, then deploy
+the repo on [share.streamlit.io](https://share.streamlit.io) with `app.py` as the
+main file. The first load downloads the file; `st.cache_resource` keeps the model in
+memory afterwards.
 
-The first load after a deploy/restart will be a bit slower while the
-checkpoint downloads from HF Hub (~123MB); `st.cache_resource` keeps it
-in memory afterwards, and `huggingface_hub` caches the file on disk too.
+## Testing
+
+**46 automated tests** (`pytest`, plus 8 optional dataset checks), run on every push in GitHub Actions together with a
+`ruff` lint check; a separate informational job runs `pip-audit` on the pinned
+dependencies. The suite uses only **synthetic data** — no dataset, no trained
+checkpoint, no network — so `pytest` works on a fresh clone in about ten seconds.
+
+| Area | What is verified |
+|---|---|
+| Train/val/test split | `group_split`: no tablet in two splits, every tablet assigned exactly once, proportions close to 70/15/15, deterministic for a seed; filename parser incl. readings with underscores |
+| Augmentation | the training pipeline contains **no mirror flips** (a flipped sign is a different sign) and only a small rotation; the evaluation pipeline is deterministic; output shape and normalisation |
+| Class weighting | inverse-frequency weights on a synthetic dataset; train/val/test must share one class-to-index mapping, otherwise loading fails |
+| Model | output shape; only `layer3`/`layer4`/`fc` are trainable and the frozen layers do not change after an optimiser step |
+| Grad-CAM | map shape and [0, 1] range on a random-weight model, different target classes give different maps, hooks are removed after each prediction (no leak on the cached model) |
+| Checkpoint loading | save → load gives identical logits; missing keys and a wrong class count are rejected; a **malicious pickle is rejected and its payload does not run** (with a control showing that the unrestricted loader would run it) |
+| App (Streamlit `AppTest`) | renders, lists every gallery class, shows top-3 with confidences, shows the low-confidence warning, re-runs after changing the example |
+| Statistics | Wilson interval helper (known value, bounds, narrower with more data, invalid input) |
+| Repository hygiene | no model binaries or dataset files tracked by git, no hard-coded local paths, no `weights_only=False` |
+
+I checked that the tests can fail: re-introducing a flip, unfreezing `layer1`,
+switching the loader to `weights_only=False` or leaving the Grad-CAM hooks attached
+each turns the relevant test red.
+
+**What the tests do not cover:** the accuracy of the real trained model (it needs the
+dataset and the checkpoint — the numbers above come from `python evaluate.py` run
+locally), the visual quality of Grad-CAM, the download from the Hugging Face Hub, and
+the Docker image build. The 8 manifest checks in `tests/test_no_leakage.py` run only
+when `data/processed/manifest.csv` exists locally; on a clean clone they are reported as
+skipped, not passed.
 
 ## Project structure
 
 ```
 cuneiform-sign-classifier/
 ├── src/
-│   ├── __init__.py
-│   └── data.py              # DataLoaders, augmentation, class weights
-├── tests/
-│   └── test_no_leakage.py   # 8 dataset integrity tests
-├── build_dataset.py          # Dataset parsing, top-N filtering, split
-├── eda.py                    # Class/period distribution, image size, samples
-├── train.py                  # Training (transfer learning, resumable)
-├── evaluate.py                # Confusion matrix, per-period error analysis
-├── embeddings.py              # t-SNE visualization of the feature space
-├── app.py                     # Streamlit demo + Grad-CAM
-├── Dockerfile / .dockerignore
-├── requirements.txt
-└── eda_outputs/                # Generated plots (kept in repo for README)
+│   ├── data.py              # DataLoaders, augmentation, class weights
+│   ├── model.py             # ResNet18 + freeze policy
+│   ├── gradcam.py           # Grad-CAM and heat-map overlay
+│   ├── inference.py         # safe checkpoint loading, single-image prediction
+│   └── metrics.py           # Wilson interval
+├── tests/                   # synthetic-data tests (see Testing)
+├── build_dataset.py         # Dataset parsing, top-N filtering, grouped split
+├── eda.py                   # Class/period distribution, image size, samples
+├── train.py                 # Training (transfer learning, resumable)
+├── evaluate.py              # Test metrics + CI, confusion matrix, per-period analysis
+├── embeddings.py            # t-SNE visualization of the feature space
+├── app.py                   # Streamlit demo + Grad-CAM
+├── demo_samples/            # small CC BY-SA gallery for the demo (own LICENSE)
+├── eda_outputs/             # Generated plots (kept in repo for README)
+├── requirements*.txt        # runtime / training / dev dependencies
+├── Dockerfile, .dockerignore
+└── .github/                 # CI and Dependabot
 ```
 
 ## Reproducing the project from scratch
@@ -184,21 +222,24 @@ cuneiform-sign-classifier/
 ```bash
 conda create -n TABL python=3.11 -y
 conda activate TABL
-conda install pytorch torchvision cpuonly -c pytorch -y
-conda install -c conda-forge pandas numpy pillow matplotlib jupyter scikit-learn seaborn tqdm -y
-pip install pytest streamlit
+pip install -r requirements-dev.txt        # CPU PyTorch, Streamlit, pytest, ruff
+
+# 0. Run the tests (no data needed)
+pytest
 
 # 1. Download MaiCuBeDa Hilprecht: https://doi.org/10.11588/DATA/QSNIQ2
-#    (translitmetadata.csv + one of the image zips, e.g. MSII)
-# 2. Build the dataset (adjust paths in the CONFIG section at the top of the file)
+#    (translitmetadata.csv -> files/, plus one of the image zips, e.g. MSII)
+#    Paths default to the project folder; override with
+#    CUNEIFORM_TRANSLIT_CSV / CUNEIFORM_CHAR_IMAGES / CUNEIFORM_OUTPUT_DIR
+# 2. Build the dataset
 python build_dataset.py
-# 3. Verify there is no data leakage
+# 3. Verify the manifest of the real split (optional extra checks)
 pytest tests/test_no_leakage.py -v
 # 4. EDA (optional)
 python eda.py
 # 5. Training (resumable - safe to interrupt and re-run)
 python train.py
-# 6. Evaluation and error analysis
+# 6. Evaluation (prints n and a 95 % interval) and error analysis
 python evaluate.py
 python embeddings.py
 # 7. Demo
@@ -207,9 +248,9 @@ streamlit run app.py
 
 ### Docker
 
-**Note:** building the image requires a locally trained
-`checkpoints/best_model.pt` (the checkpoint is not part of the repository —
-see `.gitignore` — so run step 5 above, `python train.py`, first).
+The image contains the app and the demo gallery; the checkpoint is downloaded from the
+Hugging Face Hub on first start, so it builds from a fresh clone and runs as a non-root
+user. (The image build is not part of the CI checks.)
 
 ```bash
 docker build -t cuneiform-sign-classifier .
@@ -227,6 +268,8 @@ docker run -p 8501:8501 cuneiform-sign-classifier
 - **Classification, not detection** — the model assumes the sign has already
   been cropped from the tablet. A natural extension: a detection +
   classification pipeline on the full tablet (cf. eBL, arXiv:2606.22608).
+- **The test split is a single grouped split** (one seed): the reported numbers carry
+  split-to-split variance that a repeated or cross-validated grouped split would quantify.
 - The **MSII** rendering was used for training; the dataset also provides
   `VirtualLight` — whether combining renderings would improve generalization
   remains untested.
@@ -239,6 +282,15 @@ docker run -p 8501:8501 cuneiform-sign-classifier
 - Mara, H. (2019). *HeiCuBeDa Hilprecht*. https://doi.org/10.11588/data/IE8CCN
 - Automated sign detection across the Electronic Babylonian Library (2026).
   arXiv:2606.22608
+
+## License
+
+- **Code:** MIT, see [LICENSE](LICENSE).
+- **Data and demo images:** the MaiCuBeDa dataset is CC BY-SA 4.0 (Homburg & Mara 2023). The
+  sign crops in `demo_samples/` are a selection from it and stay under CC BY-SA 4.0 — see
+  [demo_samples/LICENSE](demo_samples/LICENSE) for attribution.
+- **Trained weights:** derived from CC BY-SA 4.0 data, so they are shared under the same terms
+  (attribution, share-alike).
 
 ## Author
 

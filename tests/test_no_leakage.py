@@ -10,10 +10,12 @@ Uruchomienie (z katalogu glownego projektu):
 """
 
 import csv
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.manifest  # needs the real dataset; skipped on a clean clone
 
 # Zakladana struktura: <project_root>/tests/test_no_leakage.py
 #                       <project_root>/data/processed/manifest.csv

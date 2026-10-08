@@ -30,15 +30,21 @@ Uzycie:
 """
 
 import csv
-import shutil
-from pathlib import Path
-from collections import Counter, defaultdict
+import os
 import random
+import shutil
+from collections import Counter, defaultdict
+from pathlib import Path
 
 # ============== CONFIG - dostosuj do swojego srodowiska ==============
-TRANSLIT_CSV = Path(r"C:\Users\slast\PYTHON\0_projekty do portfolio\20_cuneiform-sign-classifier\files\translitmetadata.csv")
-CHAR_IMAGES_DIR = Path(r"C:\Users\slast\Downloads\MaiCuBeDa_Annotations_MSII\char")
-OUTPUT_DIR = Path(r"C:\Users\slast\PYTHON\0_projekty do portfolio\20_cuneiform-sign-classifier\data\processed")
+# Paths: defaults are relative to the project folder; override with environment variables.
+#   CUNEIFORM_TRANSLIT_CSV   - files/translitmetadata.csv from the MaiCuBeDa download
+#   CUNEIFORM_CHAR_IMAGES    - folder with the sign crops (MaiCuBeDa_Annotations_MSII/char)
+#   CUNEIFORM_OUTPUT_DIR     - where the train/val/test folders are written
+PROJECT_ROOT = Path(__file__).resolve().parent
+TRANSLIT_CSV = Path(os.environ.get("CUNEIFORM_TRANSLIT_CSV", PROJECT_ROOT / "files" / "translitmetadata.csv"))
+CHAR_IMAGES_DIR = Path(os.environ.get("CUNEIFORM_CHAR_IMAGES", PROJECT_ROOT / "data" / "raw" / "char"))
+OUTPUT_DIR = Path(os.environ.get("CUNEIFORM_OUTPUT_DIR", PROJECT_ROOT / "data" / "processed"))
 
 TOP_N_CLASSES = 30
 TRAIN_FRAC = 0.70
@@ -71,7 +77,7 @@ def parse_translit_csv(path: Path):
             first13 = parts[:13]
             charname = ";".join(parts[13:-1])
             transliteration = parts[-1]
-            row = dict(zip(cols, first13 + [charname, transliteration]))
+            row = dict(zip(cols, first13 + [charname, transliteration]))  # noqa: B905  (lines may be short)
             rows.append(row)
     return rows
 

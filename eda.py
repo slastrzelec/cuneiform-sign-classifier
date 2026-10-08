@@ -23,16 +23,16 @@ Uzycie:
 """
 
 import csv
-import re
 import random
-from pathlib import Path
+import re
 from collections import Counter, defaultdict
+from pathlib import Path
 
-from PIL import Image
 import matplotlib.pyplot as plt
+from PIL import Image
 
 # ============== CONFIG ==============
-PROJECT_ROOT = Path(r"C:\Users\slast\PYTHON\0_projekty do portfolio\20_cuneiform-sign-classifier")
+PROJECT_ROOT = Path(__file__).resolve().parent
 TRANSLIT_CSV = PROJECT_ROOT / "files" / "translitmetadata.csv"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 MANIFEST_PATH = PROCESSED_DIR / "manifest.csv"
@@ -166,7 +166,7 @@ def save_class_samples_grid(manifest):
         try:
             img = Image.open(fpath)
             axes[i].imshow(img, cmap="gray")
-        except Exception:
+        except Exception:  # noqa: S110  (a missing/corrupt preview image is skipped)
             pass
         axes[i].set_title(charname, fontsize=8)
         axes[i].axis("off")
@@ -222,7 +222,7 @@ def save_period_comparison(manifest, tablet_period):
                 try:
                     img = Image.open(fpath)
                     ax.imshow(img, cmap="gray")
-                except Exception:
+                except Exception:  # noqa: S110  (a missing/corrupt preview image is skipped)
                     pass
                 short_period = period[:20]
                 ax.set_title(f"{charname}\n{short_period}", fontsize=7)

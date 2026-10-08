@@ -1,32 +1,25 @@
-# Obraz Dockera dla demo Streamlit klasyfikatora znakow klinowych.
-#
-# Celowo NIE pakujemy calego data/processed (train/val to tysiace obrazow,
-# potrzebne tylko do treningu, nie do dzialania demo) - obraz zawiera
-# jedynie to, co potrzebne do uruchomienia aplikacji: kod, wytrenowany
-# model i galerie przykladow testowych do wyboru w interfejsie.
-
+# Demo image: the Streamlit app with the committed demo gallery.
+# The trained checkpoint is NOT baked in: the app downloads it from the Hugging Face Hub on
+# first start (see HF_REPO_ID in app.py), so the image builds from a fresh clone.
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Zaleznosci najpierw (osobna warstwa cache'owana przez Dockera -
-# nie przebudowuje sie przy kazdej zmianie kodu, tylko przy zmianie requirements.txt)
+# Dependencies first: this layer is cached until requirements.txt changes.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Kod aplikacji
 COPY src/ src/
-COPY train.py .
 COPY app.py .
+COPY demo_samples/ demo_samples/
 
-# Wytrenowany model (tylko najlepszy checkpoint, bez last_model.pt
-# ktory zawiera dodatkowo stan optymalizatora - niepotrzebny do inferencji)
-COPY checkpoints/best_model.pt checkpoints/best_model.pt
-
-# Galeria przykladow do demo (tylko test/, nie train/val - te sluza
-# wylacznie do treningu i nie sa potrzebne w dzialajacej aplikacji)
-COPY data/processed/test/ data/processed/test/
+# Do not run as root.
+RUN useradd --create-home app
+USER app
+ENV HF_HOME=/home/app/.cache/huggingface
 
 EXPOSE 8501
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')" || exit 1
 
 CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
