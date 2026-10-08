@@ -11,4 +11,4 @@ numpy==2.4.6
 
 # Fetches the trained checkpoint from the Hugging Face Hub on a fresh deployment
 # (best_model.pt, ~123 MB, is not stored in git).
-huggingface_hub==1.30.0
+huggingface_hub==1.33.0
