@@ -1,7 +1,7 @@
 # Runtime dependencies of the Streamlit demo (also used by Streamlit Community Cloud).
 # CPU-only PyTorch: much smaller image / faster build than the default CUDA wheel.
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.14.0
+torch==2.14.1+cpu
 torchvision==0.29.0
 
 streamlit==1.63.0
