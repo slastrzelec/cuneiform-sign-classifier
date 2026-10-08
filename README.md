@@ -1,5 +1,7 @@
 # Cuneiform Sign Classifier
 
+[![tests](https://github.com/slastrzelec/cuneiform-sign-classifier/actions/workflows/ci.yml/badge.svg)](https://github.com/slastrzelec/cuneiform-sign-classifier/actions/workflows/ci.yml)
+
 Classification of individual cuneiform signs (Sumerian/Akkadian) on images of
 3D-rendered clay tablets, using transfer learning. A portfolio project
 demonstrating a full ML workflow: exploring a niche, challenging dataset,
