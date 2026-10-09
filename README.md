@@ -297,6 +297,6 @@ docker run -p 8501:8501 cuneiform-sign-classifier
 ## Author
 
 Sławomir Strzelec — AI/ML Engineer & Data Scientist, Kraków
-[Portfolio](https://slastrzelec.github.io/portfolio/) ·
+[Portfolio page](https://slastrzelec.github.io/portfolio/20_cuneiform-sign-classifier/) ·
 [GitHub](https://github.com/slastrzelec) ·
 [LinkedIn](https://linkedin.com/in/sławomir-strzelec)
